@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>我的菜谱</title>
+<meta name="theme-color" content="#ea580c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="菜谱">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<style>
+  :root {
+    --accent: #ea580c;
+    --accent-soft: #fff1e6;
+    --bg: #fff8f1;
+    --card: #ffffff;
+    --text: #2d2a26;
+    --muted: #8a8178;
+    --line: #f0e6dc;
+    --danger: #dc2626;
+    --radius: 16px;
+    --shadow: 0 1px 3px rgba(60, 40, 20, .08), 0 4px 14px rgba(60, 40, 20, .06);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding-bottom: 96px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px; background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    padding-top: calc(14px + env(safe-area-inset-top));
+  }
+  .topbar h1 { font-size: 20px; margin: 0; font-weight: 700; }
+  .icon-btn {
+    border: none; background: transparent; font-size: 22px;
+    width: 40px; height: 40px; border-radius: 12px; cursor: pointer; color: var(--text);
+  }
+  .icon-btn:active { background: var(--accent-soft); }
+  .searchbar { padding: 10px 16px 4px; }
+  .searchbar input {
+    width: 100%; font-size: 16px; padding: 12px 14px;
+    border: 1px solid var(--line); border-radius: 12px; background: var(--card);
+    outline: none; color: var(--text);
+  }
+  .searchbar input:focus { border-color: var(--accent); }
+  .chips {
+    display: flex; gap: 8px; overflow-x: auto; padding: 8px 16px 12px;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip {
+    flex: 0 0 auto; border: 1px solid var(--line); background: var(--card);
+    color: var(--muted); padding: 7px 14px; border-radius: 999px;
+    font-size: 14px; cursor: pointer; white-space: nowrap;
+  }
+  .chip.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; padding: 4px 16px 0;
+  }
+  @media (min-width: 640px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+  @media (min-width: 960px) { .grid { grid-template-columns: repeat(4, 1fr); } }
+  .card {
+    border: none; background: var(--card); border-radius: var(--radius);
+    box-shadow: var(--shadow); overflow: hidden; padding: 0; cursor: pointer;
+    text-align: left; display: flex; flex-direction: column; animation: pop .18s ease;
+  }
+  @keyframes pop { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .thumb {
+    aspect-ratio: 1 / 1; background: #f6ede3; display: flex; align-items: center; justify-content: center;
+    font-size: 42px; overflow: hidden;
+  }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .info { padding: 10px 12px 12px; }
+  .info .name { font-weight: 600; font-size: 15px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+  .info .cat { font-size: 12px; color: var(--accent); margin-top: 4px; }
+  .empty { grid-column: 1 / -1; text-align: center; padding: 60px 20px; color: var(--muted); }
+  .empty .big { font-size: 52px; display: block; margin-bottom: 10px; }
+  .fab {
+    position: fixed; right: 22px; bottom: calc(22px + env(safe-area-inset-bottom)); z-index: 20;
+    width: 60px; height: 60px; border-radius: 50%; border: none;
+    background: var(--accent); color: #fff; font-size: 30px; line-height: 1;
+    box-shadow: 0 6px 18px rgba(234, 88, 12, .4); cursor: pointer;
+  }
+  .fab:active { transform: scale(.95); }
+  /* menu */
+  .menu {
+    position: fixed; top: calc(58px + env(safe-area-inset-top)); right: 14px; z-index: 40;
+    background: var(--card); border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.18);
+    padding: 6px; display: flex; flex-direction: column; min-width: 140px;
+  }
+  .menu button { border: none; background: none; text-align: left; padding: 11px 14px; font-size: 15px; border-radius: 9px; cursor: pointer; color: var(--text); }
+  .menu button:active { background: var(--accent-soft); }
+  .hidden { display: none !important; }
+  /* modal */
+  .modal {
+    position: fixed; inset: 0; z-index: 50; background: var(--bg);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .modal-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--bg);
+    padding-top: calc(12px + env(safe-area-inset-top));
+  }
+  .modal-head h2 { margin: 0; font-size: 17px; font-weight: 700; }
+  .modal-head button { border: none; background: none; font-size: 16px; padding: 8px 12px; border-radius: 9px; cursor: pointer; color: var(--accent); }
+  .modal-head .save { font-weight: 700; }
+  .modal-body { flex: 1; overflow-y: auto; padding: 16px; -webkit-overflow-scrolling: touch; }
+  .modal-body label { display: block; font-size: 13px; color: var(--muted); margin: 14px 0 6px; font-weight: 600; }
+  .modal-body label:first-child { margin-top: 0; }
+  .modal-body input, .modal-body textarea {
+    width: 100%; font-size: 16px; padding: 12px 14px; border: 1px solid var(--line);
+    border-radius: 12px; background: var(--card); outline: none; color: var(--text);
+    font-family: inherit; resize: vertical;
+  }
+  .modal-body input:focus, .modal-body textarea:focus { border-color: var(--accent); }
+  .imgbox { position: relative; width: 120px; height: 120px; border-radius: 14px; overflow: hidden; margin-top: 6px; }
+  .imgbox img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .imgbox button {
+    position: absolute; top: 4px; right: 4px; width: 26px; height: 26px; border-radius: 50%;
+    border: none; background: rgba(0,0,0,.6); color: #fff; font-size: 14px; cursor: pointer; line-height: 1;
+  }
+  .pick {
+    display: block; margin-top: 8px; border: 1.5px dashed var(--line); background: var(--card);
+    padding: 12px; border-radius: 12px; font-size: 15px; color: var(--accent); cursor: pointer; width: 100%;
+  }
+  /* detail */
+  .detail-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 16px; border-bottom: 1px solid var(--line);
+    padding-top: calc(10px + env(safe-area-inset-top));
+  }
+  .detail-head button { border: none; background: none; font-size: 16px; padding: 8px 12px; border-radius: 9px; cursor: pointer; color: var(--accent); font-weight: 600; }
+  .detail-body { flex: 1; overflow-y: auto; padding: 16px 16px 0; -webkit-overflow-scrolling: touch; }
+  .detail-body img { width: 100%; border-radius: var(--radius); aspect-ratio: 4/3; object-fit: cover; background: #f6ede3; }
+  .detail-body h2 { margin: 16px 0 6px; font-size: 22px; }
+  .detail-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .tagpill { background: var(--accent-soft); color: var(--accent); padding: 4px 10px; border-radius: 999px; font-size: 13px; }
+  .detail-body h3 { font-size: 14px; color: var(--accent); margin: 18px 0 6px; }
+  .detail-body .txt { white-space: pre-wrap; line-height: 1.7; font-size: 15px; }
+  .detail-actions { padding: 16px; }
+  .danger { width: 100%; border: 1px solid #fecaca; background: #fff1f1; color: var(--danger); padding: 14px; border-radius: 12px; font-size: 16px; cursor: pointer; font-weight: 600; }
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <h1>🍳 我的菜谱</h1>
+    <button id="menuBtn" class="icon-btn" aria-label="菜单">⋮</button>
+  </header>
+
+  <div class="searchbar">
+    <input id="searchInput" type="search" placeholder="搜索菜名、材料、标签…" autocomplete="off">
+  </div>
+
+  <div id="chips" class="chips"></div>
+
+  <main id="grid" class="grid"></main>
+
+  <button id="fab" class="fab" aria-label="添加菜品">＋</button>
+
+  <div id="menu" class="menu hidden">
+    <button data-act="export">📤 导出备份</button>
+    <button data-act="import">📥 导入备份</button>
+  </div>
+  <input type="file" id="importInput" accept=".json,application/json" hidden>
+
+  <!-- 添加 / 编辑 -->
+  <div id="formModal" class="modal hidden">
+    <div class="modal-head">
+      <button id="formCancel">取消</button>
+      <h2 id="formTitle">添加菜品</h2>
+      <button id="formSave" class="save">保存</button>
+    </div>
+    <div class="modal-body">
+      <label>菜名 *</label>
+      <input id="fName" type="text" placeholder="例如：红烧肉">
+      <label>分类</label>
+      <input id="fCat" type="text" list="catList" placeholder="例如：家常菜（可新建）">
+      <datalist id="catList"></datalist>
+      <label>标签（用逗号分隔，可选）</label>
+      <input id="fTags" type="text" placeholder="例如：下饭, 快手">
+      <label>图片</label>
+      <div id="imgBox" class="imgbox hidden"><img id="imgPreview" alt="预览"><button id="imgRemove" aria-label="移除图片">×</button></div>
+      <button id="imgPick" class="pick" type="button">📷 拍照 / 从相册选择</button>
+      <input type="file" id="imgInput" accept="image/*" hidden>
+      <label>材料（可选）</label>
+      <textarea id="fIng" rows="3" placeholder="每行一种材料"></textarea>
+      <label>做法 / 说明</label>
+      <textarea id="fSteps" rows="6" placeholder="步骤、火候、小技巧…"></textarea>
+    </div>
+  </div>
+
+  <!-- 详情 -->
+  <div id="detailModal" class="modal hidden">
+    <div class="detail-head">
+      <button id="detailBack">← 返回</button>
+      <button id="detailEdit">编辑</button>
+    </div>
+    <div id="detailBody" class="detail-body"></div>
+    <div class="detail-actions"><button id="detailDelete" class="danger">删除这道菜</button></div>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- IndexedDB ----------
+  const DB_NAME = "caipu-db", DB_VER = 1, STORE = "dishes";
+  let db = null;
+
+  function openDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, DB_VER);
+      req.onupgradeneeded = e => {
+        const d = e.target.result;
+        if (!d.objectStoreNames.contains(STORE)) d.createObjectStore(STORE, { keyPath: "id" });
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  function req(res) { return new Promise((ok, no) => { res.onsuccess = () => ok(res.result); res.onerror = () => no(res.error); }); }
+  function dbAll() { return req(db.transaction(STORE, "readonly").objectStore(STORE).getAll()); }
+  function dbPut(dish) { return req(db.transaction(STORE, "readwrite").objectStore(STORE).put(dish)); }
+  function dbDel(id) { return req(db.transaction(STORE, "readwrite").objectStore(STORE).delete(id)); }
+
+  // ---------- state ----------
+  let dishes = [];
+  let currentCat = "全部";
+  let searchQuery = "";
+  let editingId = null;
+  let newImageBlob = null;   // 表单里新选的图片（已压缩）
+  let viewId = null;         // 详情页正在看的菜
+
+  // ---------- dom ----------
+  const $ = id => document.getElementById(id);
+  const grid = $("grid"), chips = $("chips"), searchInput = $("searchInput");
+
+  // ---------- utils ----------
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now() + "-" + Math.random().toString(36).slice(2));
+
+  function blobToDataURL(blob) {
+    return new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(blob); });
+  }
+  function dataURLToBlob(dataURL) {
+    const m = /^data:(.*?)(;base64)?,(.*)$/s.exec(dataURL);
+    if (!m) return null;
+    const mime = m[1] || "image/jpeg", b64 = m[3];
+    const bin = atob(b64); const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: mime });
+  }
+  function objectURL(dish, cb) {
+    if (!dish || !dish.image) return null;
+    const url = URL.createObjectURL(dish.image);
+    const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); cb(img, url); };
+    img.onerror = () => { URL.revokeObjectURL(url); cb(null, null); };
+    img.src = url;
+    return url;
+  }
+
+  // 压缩图片：最长边 1600，JPEG 质量 0.82
+  function compressImage(file) {
+    return new Promise((ok, no) => {
+      const img = new Image();
+      const src = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(src);
+        const max = 1600, scale = Math.min(1, max / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+        const c = document.createElement("canvas"); c.width = w; c.height = h;
+        c.getContext("2d").drawImage(img, 0, 0, w, h);
+        c.toBlob(b => (b ? ok(b) : ok(file)), "image/jpeg", 0.82);
+      };
+      img.onerror = () => { URL.revokeObjectURL(src); ok(file); };
+      img.src = src;
+    });
+  }
+
+  // ---------- render ----------
+  function categories() {
+    const set = new Set();
+    dishes.forEach(d => { const c = (d.category || "").trim(); if (c) set.add(c); });
+    return [...set].sort((a, b) => a.localeCompare(b, "zh"));
+  }
+  function filtered() {
+    let list = dishes;
+    if (currentCat !== "全部") list = list.filter(d => d.category === currentCat);
+    const q = searchQuery.trim().toLowerCase();
+    if (q) list = list.filter(d =>
+      [d.name, d.category, d.tags, d.ingredients, d.steps].join(" ").toLowerCase().includes(q)
+    );
+    return list.slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  }
+
+  function renderChips() {
+    const cats = categories();
+    chips.innerHTML = "";
+    [["全部", "全部"], ...cats.map(c => [c, c])].forEach(([label, val]) => {
+      const b = document.createElement("button");
+      b.className = "chip" + (currentCat === val ? " active" : "");
+      b.textContent = label;
+      b.onclick = () => { currentCat = val; renderChips(); renderGrid(); };
+      chips.appendChild(b);
+    });
+    // 更新表单的分类建议
+    $("catList").innerHTML = cats.map(c => `<option value="${esc(c)}"></option>`).join("");
+  }
+
+  function renderGrid() {
+    const list = filtered();
+    if (!list.length) {
+      grid.innerHTML = `<div class="empty"><span class="big">🍽️</span>${dishes.length ? "没有找到匹配的菜品" : "还没有菜品，点右下角 ＋ 添加第一道菜"}</div>`;
+      return;
+    }
+    grid.innerHTML = list.map(d => `
+      <button class="card" data-id="${esc(d.id)}">
+        <div class="thumb" data-img="${esc(d.id)}">${d.image ? "" : "🍲"}</div>
+        <div class="info">
+          <div class="name">${esc(d.name)}</div>
+          <div class="cat">${esc(d.category || "")}</div>
+        </div>
+      </button>`).join("");
+    list.forEach(d => {
+      if (!d.image) return;
+      const el = grid.querySelector(`[data-img="${CSS.escape(d.id)}"]`);
+      objectURL(d, (img, url) => {
+        if (img && el) { const i = new Image(); i.src = url; i.alt = d.name; el.innerHTML = ""; el.appendChild(i); }
+      });
+    });
+  }
+
+  function renderDetail(dish) {
+    const meta = [dish.category, ...(dish.tags ? dish.tags.split(/[,，]/).map(s => s.trim()).filter(Boolean) : [])]
+      .filter(Boolean).map(t => `<span class="tagpill">${esc(t)}</span>`).join("");
+    $("detailBody").innerHTML = `
+      ${dish.image ? `<img id="detailImg" alt="${esc(dish.name)}">` : ""}
+      <h2>${esc(dish.name)}</h2>
+      ${meta ? `<div class="detail-meta">${meta}</div>` : ""}
+      ${dish.ingredients ? `<h3>材料</h3><div class="txt">${esc(dish.ingredients)}</div>` : ""}
+      ${dish.steps ? `<h3>做法 / 说明</h3><div class="txt">${esc(dish.steps)}</div>` : ""}`;
+    if (dish.image) objectURL(dish, (img, url) => { const i = $("detailImg"); if (img && i) i.src = url; });
+  }
+
+  // ---------- form ----------
+  function openForm(dish) {
+    editingId = dish ? dish.id : null;
+    newImageBlob = null;
+    $("formTitle").textContent = dish ? "编辑菜品" : "添加菜品";
+    $("fName").value = dish ? dish.name : "";
+    $("fCat").value = dish ? dish.category : "";
+    $("fTags").value = dish ? dish.tags : "";
+    $("fIng").value = dish ? dish.ingredients : "";
+    $("fSteps").value = dish ? dish.steps : "";
+    showImgPreview(dish ? dish.image : null);
+    $("formModal").classList.remove("hidden");
+    setTimeout(() => $("fName").focus(), 50);
+  }
+  function showImgPreview(blob) {
+    const box = $("imgBox"), img = $("imgPreview");
+    if (!blob) { box.classList.add("hidden"); img.src = ""; return; }
+    const url = URL.createObjectURL(blob);
+    img.onload = () => URL.revokeObjectURL(url);
+    img.src = url;
+    box.classList.remove("hidden");
+  }
+  async function saveForm() {
+    const name = $("fName").value.trim();
+    if (!name) { $("fName").focus(); return; }
+    const prev = editingId ? dishes.find(d => d.id === editingId) : null;
+    const dish = {
+      id: editingId || uid(),
+      name,
+      category: $("fCat").value.trim(),
+      tags: $("fTags").value.trim(),
+      ingredients: $("fIng").value.trim(),
+      steps: $("fSteps").value.trim(),
+      image: newImageBlob || (prev ? prev.image : null),
+      createdAt: prev ? prev.createdAt : Date.now(),
+      updatedAt: Date.now()
+    };
+    await dbPut(dish);
+    await refresh();
+    $("formModal").classList.add("hidden");
+  }
+
+  // ---------- data ----------
+  async function refresh() {
+    dishes = await dbAll();
+    renderChips();
+    renderGrid();
+  }
+
+  // ---------- backup ----------
+  async function exportData() {
+    const data = { app: "caipu", version: 1, exportedAt: new Date().toISOString(), dishes: [] };
+    for (const d of dishes) {
+      data.dishes.push({ ...d, image: d.image ? await blobToDataURL(d.image) : null });
+    }
+    const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "菜谱备份-" + new Date().toISOString().slice(0, 10) + ".json";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }
+  async function importData(file) {
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (!data.dishes || !Array.isArray(data.dishes)) throw new Error("格式不对");
+      for (const item of data.dishes) {
+        const image = item.image ? dataURLToBlob(item.image) : null;
+        await dbPut({ ...item, image });
+      }
+      await refresh();
+      alert("导入完成，共 " + data.dishes.length + " 道菜");
+    } catch (e) {
+      alert("导入失败：" + e.message);
+    }
+  }
+
+  // ---------- events ----------
+  $("fab").onclick = () => openForm(null);
+  $("formCancel").onclick = () => $("formModal").classList.add("hidden");
+  $("formSave").onclick = saveForm;
+
+  $("imgPick").onclick = () => $("imgInput").click();
+  $("imgInput").onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    newImageBlob = await compressImage(f);
+    showImgPreview(newImageBlob);
+    e.target.value = "";
+  };
+  $("imgRemove").onclick = () => { newImageBlob = null; showImgPreview(null); };
+
+  searchInput.oninput = () => { searchQuery = searchInput.value; renderGrid(); };
+
+  $("menuBtn").onclick = e => { e.stopPropagation(); $("menu").classList.toggle("hidden"); };
+  document.addEventListener("click", e => { if (!$("menu").contains(e.target) && e.target !== $("menuBtn")) $("menu").classList.add("hidden"); });
+  $("menu").addEventListener("click", e => {
+    const act = e.target.dataset.act; if (!act) return;
+    $("menu").classList.add("hidden");
+    if (act === "export") exportData();
+    else $("importInput").click();
+  });
+  $("importInput").onchange = e => { const f = e.target.files[0]; if (f) importData(f); e.target.value = ""; };
+
+  grid.addEventListener("click", e => {
+    const card = e.target.closest(".card"); if (!card) return;
+    viewId = card.dataset.id;
+    renderDetail(dishes.find(d => d.id === viewId));
+    $("detailModal").classList.remove("hidden");
+  });
+  $("detailBack").onclick = () => $("detailModal").classList.add("hidden");
+  $("detailEdit").onclick = () => { const d = dishes.find(x => x.id === viewId); $("detailModal").classList.add("hidden"); if (d) openForm(d); };
+  $("detailDelete").onclick = async () => {
+    const d = dishes.find(x => x.id === viewId); if (!d) return;
+    if (!confirm("确定删除「" + d.name + "」吗？")) return;
+    await dbDel(d.id);
+    await refresh();
+    $("detailModal").classList.add("hidden");
+  };
+
+  // ---------- init ----------
+  openDB().then(d => { db = d; refresh(); });
+
+  // Service Worker：托管在 https 下时注册，实现完全离线
+  if ("serviceWorker" in navigator && location.protocol !== "file:") {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
+})();
+</script>
+</body>
+</html>

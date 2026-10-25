@@ -1,0 +1,14 @@
+{
+  "name": "我的菜谱",
+  "short_name": "菜谱",
+  "description": "离线保存个人菜品：图片、文字、搜索、分类",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fff8f1",
+  "theme_color": "#ea580c",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
