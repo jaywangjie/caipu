@@ -261,14 +261,12 @@
     for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
     return new Blob([arr], { type: mime });
   }
-  function objectURL(dish, cb) {
-    if (!dish || !dish.image) return null;
-    const url = URL.createObjectURL(dish.image);
-    const img = new Image();
-    img.onload = () => { URL.revokeObjectURL(url); cb(img, url); };
-    img.onerror = () => { URL.revokeObjectURL(url); cb(null, null); };
-    img.src = url;
-    return url;
+  function loadImageInto(blob, targetImg) {
+    if (!blob || !targetImg) return;
+    const url = URL.createObjectURL(blob);
+    targetImg.onload = () => URL.revokeObjectURL(url);
+    targetImg.onerror = () => URL.revokeObjectURL(url);
+    targetImg.src = url;
   }
 
   // 压缩图片：最长边 1600，JPEG 质量 0.82
@@ -336,9 +334,12 @@
     list.forEach(d => {
       if (!d.image) return;
       const el = grid.querySelector(`[data-img="${CSS.escape(d.id)}"]`);
-      objectURL(d, (img, url) => {
-        if (img && el) { const i = new Image(); i.src = url; i.alt = d.name; el.innerHTML = ""; el.appendChild(i); }
-      });
+      if (!el) return;
+      const img = document.createElement("img");
+      img.alt = d.name;
+      loadImageInto(d.image, img);
+      el.innerHTML = "";
+      el.appendChild(img);
     });
   }
 
@@ -351,7 +352,7 @@
       ${meta ? `<div class="detail-meta">${meta}</div>` : ""}
       ${dish.ingredients ? `<h3>材料</h3><div class="txt">${esc(dish.ingredients)}</div>` : ""}
       ${dish.steps ? `<h3>做法 / 说明</h3><div class="txt">${esc(dish.steps)}</div>` : ""}`;
-    if (dish.image) objectURL(dish, (img, url) => { const i = $("detailImg"); if (img && i) i.src = url; });
+    if (dish.image) loadImageInto(dish.image, $("detailImg"));
   }
 
   // ---------- form ----------
